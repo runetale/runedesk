@@ -29,7 +29,32 @@ lazy_static::lazy_static! {
 static START_REFRESHER: Once = Once::new();
 
 /// Sends a GET request to the daemon and returns the response body.
+///
+/// Windows named pipes opened through `std::fs` have no I/O timeout, so the
+/// request runs on a helper thread and is abandoned after `IO_TIMEOUT` + 1s
+/// (a stuck daemon must not freeze the caller, e.g. the UI thread).
 fn local_api_get(path: &str) -> std::io::Result<String> {
+    #[cfg(windows)]
+    {
+        let (tx, rx) = std::sync::mpsc::channel();
+        let path = path.to_owned();
+        std::thread::spawn(move || {
+            let _ = tx.send(local_api_get_blocking(&path));
+        });
+        return rx
+            .recv_timeout(IO_TIMEOUT + Duration::from_secs(1))
+            .unwrap_or_else(|_| {
+                Err(std::io::Error::new(
+                    std::io::ErrorKind::TimedOut,
+                    "runetaled LocalAPI did not answer",
+                ))
+            });
+    }
+    #[cfg(not(windows))]
+    local_api_get_blocking(path)
+}
+
+fn local_api_get_blocking(path: &str) -> std::io::Result<String> {
     // HTTP/1.0 so the daemon closes the connection and sends no chunked body.
     let request = format!("GET {path} HTTP/1.0\r\nHost: {LOCAL_API_HOST}\r\n\r\n");
 
@@ -152,28 +177,71 @@ fn now_secs() -> i64 {
         .map_or(0, |d| d.as_secs() as i64)
 }
 
+/// One line describing a status query result, for the log: the error, or
+/// the backend state and what was found. Unexpected JSON shapes list the
+/// top-level keys so a daemon/RuneDesk schema mismatch shows up in logs.
+fn describe(result: &std::io::Result<String>, snap: &Snapshot) -> String {
+    let body = match result {
+        Err(e) => return format!("runetaled LocalAPI {SOCKET_PATH}: {e}"),
+        Ok(body) => body,
+    };
+    let Ok(v) = serde_json::from_str::<serde_json::Value>(body) else {
+        return format!("runetaled status is not JSON ({} bytes)", body.len());
+    };
+    let state = v.get("backend_state").and_then(|s| s.as_str());
+    let mut line = format!(
+        "runetaled status: backend_state={} ips={} peers={}",
+        state.unwrap_or("<missing>"),
+        snap.ips.len(),
+        snap.peers.len()
+    );
+    let peers_in_json = v.get("peer").and_then(|p| p.as_object()).map_or(0, |m| m.len());
+    if state.is_none() || (state == Some("Running") && snap.ips.is_empty()) || peers_in_json != snap.peers.len() {
+        let keys: Vec<&str> = v.as_object().map(|o| o.keys().map(|k| k.as_str()).collect()).unwrap_or_default();
+        line.push_str(&format!(" peer_entries={peers_in_json} keys={keys:?}"));
+    }
+    line
+}
+
 /// Asks the daemon for the current status.
 pub fn query_snapshot() -> Snapshot {
-    match local_api_get(STATUS_PATH) {
-        Ok(body) => parse_status(&body, now_secs()),
-        Err(e) => {
-            log::debug!("runetaled LocalAPI unavailable: {e}");
-            Snapshot::default()
+    query_snapshot_logged(&mut String::new())
+}
+
+/// Like `query_snapshot`, logging the outcome whenever it differs from
+/// `last` (so a steady state is logged once, not every refresh).
+fn query_snapshot_logged(last: &mut String) -> Snapshot {
+    let result = local_api_get(STATUS_PATH);
+    let snap = match &result {
+        Ok(body) => parse_status(body, now_secs()),
+        Err(_) => Snapshot::default(),
+    };
+    let line = describe(&result, &snap);
+    if *last != line {
+        if result.is_ok() && !snap.ips.is_empty() {
+            log::info!("{line}");
+        } else {
+            log::warn!("{line}");
         }
+        *last = line;
     }
+    snap
 }
 
 /// Returns the last known status without blocking.
 ///
-/// A background thread refreshes it every few seconds, so UI code can call
-/// this on every redraw.
+/// A background thread queries the daemon right away and then every few
+/// seconds; until the first answer this returns an empty snapshot, so UI
+/// code can call it on every redraw without ever waiting on the daemon.
 pub fn snapshot() -> Snapshot {
     START_REFRESHER.call_once(|| {
-        *CACHED.lock().unwrap() = query_snapshot();
-        std::thread::spawn(|| loop {
-            std::thread::sleep(REFRESH_INTERVAL);
-            let s = query_snapshot();
-            *CACHED.lock().unwrap() = s;
+        std::thread::spawn(|| {
+            let mut last = String::new();
+            loop {
+                let s = query_snapshot_logged(&mut last);
+                *CACHED.lock().unwrap() = s;
+                std::thread::sleep(REFRESH_INTERVAL);
+            }
         });
     });
     CACHED.lock().unwrap().clone()
