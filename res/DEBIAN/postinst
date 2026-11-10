@@ -1,0 +1,23 @@
+#!/bin/bash
+
+set -e
+
+if [ "$1" = configure ]; then
+
+	INITSYS=$(ls -al /proc/1/exe | awk -F' ' '{print $NF}' | awk -F'/' '{print $NF}')
+    ln -s /usr/lib/runedesk/runedesk /usr/bin/runedesk
+	
+	if [ "systemd" == "$INITSYS" ]; then
+
+		if [ -e /etc/systemd/system/runedesk.service ]; then
+			rm /etc/systemd/system/runedesk.service /usr/lib/systemd/system/runedesk.service /usr/lib/systemd/user/runedesk.service >/dev/null  2>&1
+		fi
+		version=$(python3 -V 2>&1 | grep -Po '(?<=Python )(.+)')
+		parsedVersion=$(echo "${version//./}")
+        mkdir -p /usr/lib/systemd/system/
+		cp /usr/share/runedesk/files/systemd/runedesk.service /usr/lib/systemd/system/runedesk.service
+		systemctl daemon-reload
+		systemctl enable runedesk
+		systemctl start runedesk
+	fi
+fi

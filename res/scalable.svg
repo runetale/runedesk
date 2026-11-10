@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <!-- RuneDesk app icon: runetale palette (ink #191E1E, cream #E8E4DC),
+       a monitor with the runetale "r" mark on its screen. -->
+  <rect width="1024" height="1024" rx="230" fill="#191E1E"/>
+  <!-- monitor -->
+  <rect x="196" y="236" width="632" height="432" rx="56" fill="none" stroke="#E8E4DC" stroke-width="46"/>
+  <rect x="474" y="668" width="76" height="76" fill="#E8E4DC"/>
+  <rect x="364" y="736" width="296" height="48" rx="24" fill="#E8E4DC"/>
+  <!-- runetale mark (from runetale-logo.svg), centered on the screen -->
+  <g transform="translate(512 452) scale(17) translate(-16.05 -15.95)">
+    <path fill="#E8E4DC" d="M11.1982 11.795C11.1982 9.31351 12.6586 8.14551 14.8768 8.14551H20.8913L20.8622 11.6495H15.5488V23.7644H11.1982V11.795Z"/>
+  </g>
+</svg>

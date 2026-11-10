@@ -1,0 +1,16 @@
+[Unit]
+Description=RuneDesk
+Requires=network.target
+After=systemd-user-sessions.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/runedesk --service
+PIDFile=/run/runedesk.pid
+KillMode=mixed
+TimeoutStopSec=30
+User=root
+LimitNOFILE=100000
+
+[Install]
+WantedBy=multi-user.target

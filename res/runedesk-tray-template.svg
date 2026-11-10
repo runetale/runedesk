@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="60" height="60" viewBox="0 0 1024 1024">
+  <!-- macOS menu bar template icon: black on transparent (macOS recolors it). -->
+  <rect x="96" y="150" width="832" height="560" rx="72" fill="none" stroke="#000" stroke-width="84"/>
+  <rect x="462" y="710" width="100" height="90" fill="#000"/>
+  <rect x="312" y="790" width="400" height="76" rx="38" fill="#000"/>
+  <g transform="translate(512 430) scale(23) translate(-16.05 -15.95)">
+    <path fill="#000" d="M11.1982 11.795C11.1982 9.31351 12.6586 8.14551 14.8768 8.14551H20.8913L20.8622 11.6495H15.5488V23.7644H11.1982V11.795Z"/>
+  </g>
+</svg>

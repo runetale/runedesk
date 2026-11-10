@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=RuneDeskURL Scheme Handler
+NoDisplay=true
+MimeType=x-scheme-handler/runedesk;
+TryExec=runedesk
+Exec=runedesk %u
+Icon=runedesk
+Terminal=false
+Type=Application
+StartupNotify=false

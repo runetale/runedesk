@@ -1,0 +1,47 @@
+# arg 1:  the new package version
+#pre_install() {
+#}
+
+# arg 1:  the new package version
+post_install() {
+	# do something here
+	cp /usr/share/runedesk/files/runedesk.service /etc/systemd/system/runedesk.service
+	cp /usr/share/runedesk/files/runedesk.desktop /usr/share/applications/
+	cp /usr/share/runedesk/files/runedesk-link.desktop /usr/share/applications/
+	systemctl daemon-reload
+	systemctl enable runedesk
+	systemctl start runedesk
+	update-desktop-database
+}
+
+# arg 1:  the new package version
+# arg 2:  the old package version
+pre_upgrade() {
+    systemctl stop runedesk || true
+}
+
+# arg 1:  the new package version
+# arg 2:  the old package version
+post_upgrade() {
+	cp /usr/share/runedesk/files/runedesk.service /etc/systemd/system/runedesk.service
+	cp /usr/share/runedesk/files/runedesk.desktop /usr/share/applications/
+	cp /usr/share/runedesk/files/runedesk-link.desktop /usr/share/applications/
+	systemctl daemon-reload
+	systemctl enable runedesk
+	systemctl start runedesk
+	update-desktop-database
+}
+
+# arg 1:  the old package version
+pre_remove() {
+	systemctl stop runedesk || true
+	systemctl disable runedesk || true
+	rm /etc/systemd/system/runedesk.service || true
+}
+
+# arg 1:  the old package version
+post_remove() {
+	rm /usr/share/applications/runedesk.desktop || true
+	rm /usr/share/applications/runedesk-link.desktop || true
+	update-desktop-database
+}

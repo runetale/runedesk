@@ -1,0 +1,314 @@
+name: release
+
+# Push a tag `vX.Y.Z` (matching the VERSION file) to build, sign and publish
+# a GitHub Release. Run it by hand to get unsigned or signed build artifacts
+# without a release.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      sign:
+        description: Sign (and notarize) the builds
+        type: boolean
+        default: false
+      publish_tag:
+        description: Only publish an existing release (e.g. v0.1.1) to pkgs.runetale.com, without building
+        type: string
+        default: ""
+
+permissions:
+  contents: write
+
+env:
+  RUST_TOOLCHAIN: "1.75"
+  # Keep in sync with the vcpkg used for local builds (see README).
+  VCPKG_COMMIT: ec48c11eae9448c8c6e7739d93e06fa2433aa95f
+  SCITER_SDK_COMMIT: f33df075d9eb2f8d252cb88f1b2c8096e56197ed
+  SCITER_DLL_SHA256: 4d97528e157c55ef1fabe9e37a9697116ab66660d7da6163f90a3a7abf80dd56
+  FEATURES: no-clipboard,inline
+  # libgit2 fails TLS to GitHub on the macOS 26 runners; let cargo use git.
+  CARGO_NET_GIT_FETCH_WITH_CLI: "true"
+  SIGN: ${{ startsWith(github.ref, 'refs/tags/v') || inputs.sign }}
+
+jobs:
+  version:
+    if: inputs.publish_tag == ''
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+      - id: v
+        run: |
+          version=$(tr -d '[:space:]' < VERSION)
+          if [[ "$GITHUB_REF" == refs/tags/v* && "${GITHUB_REF#refs/tags/v}" != "$version" ]]; then
+            echo "::error::tag ${GITHUB_REF#refs/tags/} does not match VERSION $version"
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+  macos:
+    needs: version
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: arm64
+            runner: macos-26
+            triplet: arm64-osx
+            min_macos: "11.0"
+          - arch: x64
+            runner: macos-15-intel
+            triplet: x64-osx
+            min_macos: "10.15"
+    runs-on: ${{ matrix.runner }}
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+      # rustc, cc and the Info.plist use this; vcpkg gets it from the
+      # overlay triplets in res/vcpkg-triplets.
+      MACOSX_DEPLOYMENT_TARGET: ${{ matrix.min_macos }}
+      VCPKG_ROOT: ${{ github.workspace }}/vcpkg
+      VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}/vcpkg-cache
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Tools
+        run: |
+          brew install nasm pkg-config autoconf automake libtool
+          rustup toolchain install "$RUST_TOOLCHAIN" --profile minimal
+
+      - name: vcpkg cache
+        uses: actions/cache@v4
+        with:
+          path: vcpkg-cache
+          key: vcpkg-macos-${{ matrix.arch }}-${{ env.VCPKG_COMMIT }}-${{ hashFiles('vcpkg.json', 'res/vcpkg/**', 'res/vcpkg-triplets/**') }}
+
+      - name: vcpkg
+        run: |
+          mkdir -p "$VCPKG_DEFAULT_BINARY_CACHE"
+          git clone -q https://github.com/microsoft/vcpkg "$VCPKG_ROOT"
+          git -C "$VCPKG_ROOT" checkout -q "$VCPKG_COMMIT"
+          "$VCPKG_ROOT/bootstrap-vcpkg.sh" -disableMetrics
+          "$VCPKG_ROOT/vcpkg" install --triplet ${{ matrix.triplet }} --host-triplet ${{ matrix.triplet }} \
+            --overlay-triplets=res/vcpkg-triplets --x-install-root="$VCPKG_ROOT/installed"
+
+      - name: Build
+        run: |
+          python3 res/inline-sciter.py
+          cargo +"$RUST_TOOLCHAIN" build --release --features "$FEATURES"
+          minos=$(otool -l target/release/runedesk | awk '/LC_BUILD_VERSION/{f=1} f&&/minos/{print $2; exit}')
+          echo "runedesk minos: $minos"
+          [[ "$minos" == "$MACOSX_DEPLOYMENT_TARGET" ]] || { echo "::error::minos $minos != $MACOSX_DEPLOYMENT_TARGET"; exit 1; }
+
+      - name: Import signing certificate
+        if: env.SIGN == 'true'
+        env:
+          APP_CERT_P12: ${{ secrets.DEV_ID_APP_CERT_P12 }}
+          CERT_PASSWORD: ${{ secrets.CERT_PASSWORD }}
+        run: |
+          KEYCHAIN_PATH="$RUNNER_TEMP/build.keychain-db"
+          KEYCHAIN_PASSWORD="$(openssl rand -hex 16)"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          echo "$APP_CERT_P12" | base64 --decode > "$RUNNER_TEMP/app_cert.p12"
+          security import "$RUNNER_TEMP/app_cert.p12" -k "$KEYCHAIN_PATH" -P "$CERT_PASSWORD" -T /usr/bin/codesign
+          rm "$RUNNER_TEMP/app_cert.p12"
+          security list-keychains -d user -s "$KEYCHAIN_PATH" login.keychain-db
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          curl -fsSL https://www.apple.com/certificateauthority/DeveloperIDG2CA.cer -o "$RUNNER_TEMP/DeveloperIDG2CA.cer"
+          security import "$RUNNER_TEMP/DeveloperIDG2CA.cer" -k "$KEYCHAIN_PATH" -T /usr/bin/codesign
+          identity=$(security find-identity -v -p codesigning "$KEYCHAIN_PATH" | grep -o '"Developer ID Application: [^"]*"' | head -1 | tr -d '"')
+          [[ -n "$identity" ]] || { echo "::error::Developer ID Application identity not found"; exit 1; }
+          echo "SIGN_IDENTITY=$identity" >> "$GITHUB_ENV"
+
+      - name: Package
+        env:
+          APPLE_ID: ${{ env.SIGN == 'true' && secrets.APPLE_ID || '' }}
+          APPLE_TEAM_ID: ${{ env.SIGN == 'true' && secrets.APPLE_TEAM_ID || '' }}
+          APP_SPECIFIC_PASSWORD: ${{ env.SIGN == 'true' && secrets.APP_SPECIFIC_PASSWORD || '' }}
+        run: |
+          if [[ "$SIGN" == "true" && ( -z "$APPLE_ID" || -z "$APPLE_TEAM_ID" || -z "$APP_SPECIFIC_PASSWORD" ) ]]; then
+            echo "::error::APPLE_ID / APPLE_TEAM_ID / APP_SPECIFIC_PASSWORD are required to notarize"
+            exit 1
+          fi
+          ./scripts/package-macos.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: runedesk-macos-${{ matrix.arch }}
+          path: dist/*.dmg
+          if-no-files-found: error
+
+  windows:
+    needs: version
+    runs-on: windows-latest
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+      VCPKG_ROOT: ${{ github.workspace }}\vcpkg
+      VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}\vcpkg-cache
+      SM_HOST: ${{ secrets.SM_HOST }}
+      SM_API_KEY: ${{ secrets.SM_API_KEY }}
+      SM_CLIENT_CERT_FILE: D:\\Certificate_pkcs12.p12
+      SM_CLIENT_CERT_PASSWORD: ${{ secrets.SM_CLIENT_CERT_PASSWORD }}
+      SM_CODE_SIGNING_CERT_SHA1_HASH: ${{ secrets.SM_CODE_SIGNING_CERT_SHA1_HASH }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Rust
+        shell: pwsh
+        run: rustup toolchain install $env:RUST_TOOLCHAIN --profile minimal
+
+      # bindgen with newer libclang emits an opaque vpx_codec_enc_cfg.
+      - name: LLVM 18
+        uses: KyleMayes/install-llvm-action@v2
+        with:
+          version: "18.1.8"
+
+      - name: vcpkg cache
+        uses: actions/cache@v4
+        with:
+          path: vcpkg-cache
+          key: vcpkg-windows-x64-${{ env.VCPKG_COMMIT }}-${{ hashFiles('vcpkg.json', 'res/vcpkg/**') }}
+
+      - name: vcpkg
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force $env:VCPKG_DEFAULT_BINARY_CACHE | Out-Null
+          git clone -q https://github.com/microsoft/vcpkg $env:VCPKG_ROOT
+          git -C $env:VCPKG_ROOT checkout -q $env:VCPKG_COMMIT
+          & "$env:VCPKG_ROOT\bootstrap-vcpkg.bat" -disableMetrics
+          & "$env:VCPKG_ROOT\vcpkg.exe" install --triplet x64-windows-static --x-install-root="$env:VCPKG_ROOT\installed"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Build
+        shell: pwsh
+        run: |
+          $env:LIBCLANG_PATH = "$env:LLVM_PATH\bin"
+          python res/inline-sciter.py
+          cargo +$env:RUST_TOOLCHAIN build --release --features $env:FEATURES
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: sciter.dll
+        shell: pwsh
+        run: |
+          $dll = "target\release\sciter.dll"
+          Invoke-WebRequest -Uri "https://raw.githubusercontent.com/c-smile/sciter-sdk/$env:SCITER_SDK_COMMIT/bin.win/x64/sciter.dll" -OutFile $dll
+          $hash = (Get-FileHash $dll -Algorithm SHA256).Hash.ToLower()
+          if ($hash -ne $env:SCITER_DLL_SHA256) { Write-Error "sciter.dll sha256 $hash"; exit 1 }
+
+      - name: Setup DigiCert KeyLocker
+        if: env.SIGN == 'true'
+        uses: digicert/code-signing-software-trust-action@v1
+
+      - name: Decode DigiCert client certificate
+        if: env.SIGN == 'true'
+        shell: bash
+        run: echo "${{ secrets.SM_CLIENT_CERT_FILE_B64 }}" | base64 --decode > /d/Certificate_pkcs12.p12
+
+      - name: Sign runedesk.exe and sciter.dll
+        if: env.SIGN == 'true'
+        shell: pwsh
+        run: ./scripts/sign-windows.ps1 target\release\runedesk.exe target\release\sciter.dll
+
+      # smctl only prints "FAILED"; the reason is in its log. Print error
+      # lines only, since the full log can contain secrets.
+      - name: Show smctl errors
+        if: failure() && env.SIGN == 'true'
+        shell: pwsh
+        run: |
+          $logDir = Join-Path $env:USERPROFILE ".signingmanager\logs"
+          if (-not (Test-Path $logDir)) { exit 0 }
+          Get-ChildItem $logDir -File | ForEach-Object {
+            Write-Host "== $($_.Name)"
+            Select-String -Path $_.FullName -Pattern 'ERROR|Exception|error:|failed|SignerSign|0x8' |
+              Select-Object -Last 40 | ForEach-Object { Write-Host $_.Line }
+          }
+
+      - name: Installer
+        shell: pwsh
+        run: |
+          choco install innosetup -y --no-progress
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" /Qp "/DAppVersion=$env:VERSION" "/DSourceDir=$PWD\target\release" "/DOutputDir=$PWD\dist" res\windows\runedesk.iss
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Sign installer
+        if: env.SIGN == 'true'
+        shell: pwsh
+        run: ./scripts/sign-windows.ps1 (Get-ChildItem dist\*-setup.exe).FullName
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: runedesk-windows
+          path: dist/*-setup.exe
+          if-no-files-found: error
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [version, macos, windows]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cd artifacts
+          sha256sum * > SHA256SUMS
+          gh release create "$GITHUB_REF_NAME" * -R "$GITHUB_REPOSITORY" \
+            --title "RuneDesk ${{ needs.version.outputs.version }}" --generate-notes
+
+  # Copy the release assets to pkgs.runetale.com (pkg-dist S3 bucket behind
+  # CloudFront), like runetale-desktop, under the repository secret
+  # PKG_PREFIX (a secret so the path is masked in public logs):
+  #   <PKG_PREFIX>/<version>/<asset>                      versioned
+  #   <PKG_PREFIX>/RuneDesk-macos-{arm64,x64}.dmg,
+  #   <PKG_PREFIX>/RuneDesk-windows-x64-setup.exe, SHA256SUMS   latest
+  # Does nothing when PKG_PREFIX is not set.
+  publish-pkgs:
+    needs: [release]
+    if: always() && (needs.release.result == 'success' || inputs.publish_tag != '')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      TAG: ${{ inputs.publish_tag || github.ref_name }}
+      PREFIX: ${{ secrets.PKG_PREFIX }}
+      BUCKET: ${{ vars.PKG_DIST_BUCKET_NAME }}
+    steps:
+      - name: Download release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if [[ -z "$PREFIX" ]]; then echo "PKG_PREFIX is not set; nothing to publish"; exit 0; fi
+          [[ -n "$BUCKET" ]] || { echo "::error::vars.PKG_DIST_BUCKET_NAME is not set for this repository"; exit 1; }
+          mkdir assets
+          gh release download "$TAG" -R "$GITHUB_REPOSITORY" -D assets
+          cd assets && sha256sum -c SHA256SUMS && ls -la
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        if: env.PREFIX != ''
+        with:
+          role-to-assume: ${{ vars.AWS_GITHUB_ACTIONS_ROLE_ARN }}
+          aws-region: us-east-1
+
+      - name: Upload
+        if: env.PREFIX != ''
+        run: |
+          set -euo pipefail
+          version="${TAG#v}"
+          cd assets
+          for f in *; do
+            aws s3 cp "$f" "s3://$BUCKET/$PREFIX/$version/$f" --content-type application/octet-stream
+            latest="${f/-$version/}"
+            aws s3 cp "$f" "s3://$BUCKET/$PREFIX/$latest" --content-type application/octet-stream \
+              --cache-control "max-age=300"
+            echo "https://pkgs.runetale.com/$PREFIX/$version/$f"
+            echo "https://pkgs.runetale.com/$PREFIX/$latest"
+          done

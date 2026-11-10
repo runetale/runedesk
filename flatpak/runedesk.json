@@ -1,0 +1,49 @@
+{
+  "id": "com.runetale.RuneDesk",
+  "runtime": "org.freedesktop.Platform",
+  "runtime-version": "23.08",
+  "sdk": "org.freedesktop.Sdk",
+  "command": "runedesk",
+  "icon": "share/icons/hicolor/scalable/apps/runedesk.svg",
+  "modules": [
+    "shared-modules/libappindicator/libappindicator-gtk3-12.10.json",
+    "xdotool.json",
+    {
+      "name": "runedesk",
+      "buildsystem": "simple",
+      "build-commands": [
+        "bsdtar -zxvf runedesk-1.2.4.deb",
+        "tar -xvf ./data.tar.xz",
+        "cp -r ./usr/*  /app/",
+        "mkdir -p /app/bin && ln -s /app/lib/runedesk/runedesk /app/bin/runedesk",
+        "mv /app/share/applications/runedesk.desktop /app/share/applications/com.runetale.RuneDesk.desktop",
+        "sed -i '/^Icon=/ c\\Icon=com.runetale.RuneDesk' /app/share/applications/com.runetale.RuneDesk.desktop",
+        "sed -i '/^Icon=/ c\\Icon=com.runetale.RuneDesk' /app/share/applications/runedesk-link.desktop",
+        "mv /app/share/icons/hicolor/scalable/apps/runedesk.svg /app/share/icons/hicolor/scalable/apps/com.runetale.RuneDesk.svg",
+        "for size in 16 24 32 48 64 128 256 512; do\n rsvg-convert -w $size -h $size -f png -o $size.png logo.svg\n install -Dm644 $size.png /app/share/icons/hicolor/${size}x${size}/apps/com.runetale.RuneDesk.png\n done"
+      ],
+      "cleanup": ["/include", "/lib/pkgconfig", "/share/gtk-doc"],
+      "sources": [
+        {
+          "type": "file",
+          "path": "../runedesk-1.2.4.deb"
+        },
+        {
+          "type": "file",
+          "path": "../res/logo.svg"
+        }
+      ]
+    }
+  ],
+  "finish-args": [
+    "--share=ipc",
+    "--socket=x11",
+    "--socket=fallback-x11",
+    "--socket=wayland",
+    "--share=network",
+    "--filesystem=home",
+    "--device=dri",
+    "--socket=pulseaudio",
+    "--talk-name=org.freedesktop.Flatpak"
+  ]
+}

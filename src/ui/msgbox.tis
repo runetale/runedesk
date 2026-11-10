@@ -1,0 +1,334 @@
+function translate_text(text) {
+    if (text.indexOf('Failed') == 0 && text.indexOf(': ') > 0) {
+        var fds = text.split(': ');
+        for (var i = 0; i < fds.length; ++i) {
+            fds[i] = translate(fds[i]);
+        }
+        text = fds.join(': ');
+    } else {
+        var fds = text.split(' ');
+        if (fds.length > 1 && fds[0].slice(-4) === '_tip') {
+            fds[0] = translate(fds[0]);
+            var rest = text.substring(fds[0].length + 1);
+            text = fds[0] + ' ' + translate(rest);
+        } else {
+            text = translate(text);
+        }
+    }
+    return text;
+}
+
+var msgboxTimerFunc = function() {}
+function closeMsgbox() {
+    self.timer(0, msgboxTimerFunc);
+    $(#msgbox).content(<span />);
+}
+
+class MsgboxComponent: Reactor.Component {
+    function this(params) {
+        this.width = params.width;
+        this.height = params.height;
+        this.type = params.type;
+        this.title = params.title;
+        this.content = params.content;
+        this.link = params.link;
+        this.remember = params.remember;
+        this.callback = params.callback;
+        this.hasRetry = params.hasRetry;
+        this.autoLogin = params.autoLogin;
+        this.contentStyle = params.contentStyle;
+        try { this.content = translate_text(this.content); } catch (e) {}
+    }
+
+    function isAuth() {
+        return this.type == "input-password" || this.type == "session-login" || this.type == "session-login-password" || this.type == "input-2fa" || this.type == "custom-os-password";
+    }
+
+    function isError() {
+        return this.type.indexOf("error") >= 0 || this.type == "re-input-password" || this.type == "session-re-login" || this.type == "session-login-re-password";
+    }
+
+    // Visual tone of the dialog: auth / success / error / info.
+    function getKind() {
+        if (this.isError()) return "error";
+        if (this.isAuth()) return "auth";
+        if (this.type == "success") return "success";
+        return "info";
+    }
+
+    function getIcon() {
+        if (this.isError())
+            return <svg viewBox="0 0 24 24"><path d="M11 15h2v2h-2zm0-8h2v6h-2zm.99-5C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8z"/></svg>;
+        if (this.isAuth())
+            return <svg viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zM9 6c0-1.66 1.34-3 3-3s3 1.34 3 3v2H9V6zm9 14H6V10h12v10zm-6-3c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2z"/></svg>;
+        if (this.type == "connecting")
+            return <svg viewBox="0 0 24 24"><path d="M21 3H3c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h5v2h8v-2h5c1.1 0 1.99-.9 1.99-2L23 5c0-1.1-.9-2-2-2zm0 14H3V5h18v12z"/></svg>;
+        if (this.type == "success")
+            return <svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>;
+        return null;
+    }
+
+    function getInputPasswordContent() {
+        var ts = this.remember ? { checked: true } : {};
+        return <div .form>
+            <div>{translate('Please enter your password')}</div>
+            <PasswordComponent />
+            <div><button|checkbox(remember) {ts}>{translate('Remember password')}</button></div>
+        </div>;
+    }
+
+    function get2faContent() {
+        return <div .form>
+            <div>{translate('enter-2fa-title')}</div>
+            <div .code><input name='code' type='text' .outline-focus /></div>
+        </div>;
+    }
+
+    function getInputUserPasswordContent() {
+        return <div .form>
+            <div>{translate("OS Username")}</div>
+            <div .username><input name='osusername' type='text' .outline-focus /></div>
+            <div>{translate("OS Password")}</div>
+            <PasswordComponent name='ospassword' />
+            <div></div>
+        </div>;
+    }
+
+    function getXsessionPasswordContent() {
+        return <div .form>
+            <div>{translate("OS Username")}</div>
+            <div .username><input name='osusername' type='text' .outline-focus /></div>
+            <div>{translate("OS Password")}</div>
+            <PasswordComponent name='ospassword' />
+            <div>{translate('Please enter your password')}</div>
+            <PasswordComponent />
+            <div><button|checkbox(remember) {ts}>{translate('Remember password')}</button></div>
+        </div>;
+    }
+
+    function getContent() {
+        if (this.type == "input-password") {
+            return this.getInputPasswordContent();
+        } else if (this.type == "input-2fa") {
+            return this.get2faContent();
+        } else if (this.type == "session-login") {
+            return this.getInputUserPasswordContent();
+        } else if (this.type == "session-login-password") {
+            return this.getXsessionPasswordContent();
+        } else if (this.type == "custom-os-password") {
+            var ts = this.autoLogin ? { checked: true } : {};
+            return <div .form>
+              <PasswordComponent value={this.content} />
+              <div><button|checkbox(autoLogin) {ts} style="width: *; word-wrap: break-word; overflow-wrap: break-word; white-space: normal; height: auto; overflow: hidden;">{translate('Auto Login')}</button></div>
+              </div>;
+        }
+        return this.content;
+    }
+
+    function hasSkip() {
+        return this.type.indexOf("skip") >= 0;
+    }
+
+    function render() {
+        this.set_outline_focus();
+        var kind = this.getKind();
+        var icon = this.getIcon();
+        var content = this.getContent();
+        var hasCancel = this.type.indexOf("error") < 0 && this.type.indexOf("nocancel") < 0 && this.type != "restarting";
+        var hasOk = this.type != "connecting" && this.type != "success" && this.type.indexOf("nook") < 0;
+        var hasLink = this.link != "";
+        var hasClose = this.type.indexOf("hasclose") >= 0;
+        var show_progress = this.type == "connecting";
+        var me = this;
+        self.timer(0, msgboxTimerFunc);
+        msgboxTimerFunc = function() {
+            if (typeof content == "string")
+                me.$(#content).html = translate(content);
+            else
+                me.$(#content).content(content);
+        };
+        self.timer(3ms, msgboxTimerFunc);
+        return (<div><div .rd-scrim />
+        <div style="size: *; position: absolute;">
+            <div class={"rd-dialog " + kind + (icon ? " has-icon" : "")} style={"margin: *; width:" + (this.width) + "px; min-height:" + (this.height) + "px"}>
+                <div .rd-dialog-head>
+                    {icon && <div .rd-dialog-icon>{icon}</div>}
+                    <div .rd-dialog-title>{translate(this.title)}</div>
+                </div>
+                <div .rd-dialog-body style={this.contentStyle || ""} #content />
+                <progress #progress .rd-progress style={"display: " + (show_progress ? "block" : "none")} />
+                <div .rd-dialog-actions>
+                    <span #error />
+                    <div .rd-dialog-spacer />
+                    {hasCancel || this.hasRetry ? <button .button #cancel .outline>{translate(this.hasRetry ? "OK" : "Cancel")}</button> : ""}
+                    {this.hasSkip() ? <button .button #skip .outline>{translate('Skip')}</button> : ""}
+                    {hasOk || this.hasRetry ? <button .button #submit>{translate(this.hasRetry ? "Retry" : "OK")}</button> : ""}
+                    {hasLink ? <button .button #jumplink .outline>{translate('JumpLink')}</button> : ""}
+                    {hasClose ? <button .button #cancel .outline>{translate('Close')}</button> : ""}
+                </div>
+            </div>
+        </div></div>);
+    }
+
+    event click $(.custom-event) (_, me) {
+        if (this.callback) this.callback(me);
+    }
+    
+    function submit() {
+        if (this.$(button#submit)) {
+            this.$(button#submit).sendEvent("click");
+        }
+    }
+    
+    function cancel() {
+        if (this.$(button#cancel)) {
+            this.$(button#cancel).sendEvent("click");
+        }
+    }
+ 
+    event click $(button#cancel) {
+        this.close();
+        if (this.callback) this.callback(null);
+    }
+    
+    event click $(button#skip) {
+        var values = this.getValues();
+        values.skip = true;
+        if (this.callback) this.callback(values);
+        if (this.close) this.close();
+    }
+
+    event click $(button#jumplink) {
+        if (this.link.indexOf("http") == 0) {
+            Sciter.launch(this.link);
+        }
+    }
+    
+    event click $(button#submit) {
+        if (this.type == "error") {
+            if (this.hasRetry) {
+                retryConnect(true);
+                return;
+            }
+        }
+        if (this.type == "re-input-password") {
+            this.type = "input-password";
+            this.update();
+            return;
+        }
+        if (this.type == "session-re-login") {
+            this.type = "session-login";
+            this.update();
+            return;
+        }
+        if (this.type == "session-login-re-password") {
+            this.type = "session-login-password";
+            this.update();
+            return;
+        }
+        var values = this.getValues();
+        if (this.callback) {
+            var self = this;
+            var err = this.callback(values, function(a=1, b='') { self.show_progress(a, b); });
+            if (!err) {
+                if (this.close) this.close();
+                return;
+            }
+            if (err && err.trim()) this.show_progress(false, err);
+        } else {
+            this.close();
+        }
+    }
+    
+    event keydown (evt) {
+        if (!evt.shortcutKey) {
+            if (isEnterKey(evt)) {
+                this.submit();
+            }
+            if (evt.keyCode == Event.VK_ESCAPE) {
+                this.cancel();
+            }
+        }
+    }
+
+    event click $(button#select_directory) {
+        var folder = view.selectFolder(translate("Change"), $(#folderPath).text);
+        if (folder) {
+            if (folder.indexOf("file://") == 0) folder = folder.substring(7);
+            $(#folderPath).text = folder;
+        }
+    }
+    
+    function show_progress(show=1, err="") {
+        if (show == -1) {
+            this.close()
+            return;
+        }
+        this.$(#progress).style.set {
+            display: show ? "block" : "none"
+        };
+        this.$(#error).text = err;
+    }
+    
+    function getValues() {
+        var values = { type: this.type };
+        for (var el in this.$$(.form input)) {
+            values[el.attributes["name"]] = el.value;
+        }
+        for (var el in this.$$(.form textarea)) {
+            values[el.attributes["name"]] = el.value;
+        }
+        for (var el in this.$$(.form button)) {
+            values[el.attributes["name"]] = el.value;
+        }
+        if (this.type == "input-password") {
+            values.password = (values.password || "").trim();
+            if (!values.password) {
+                return;
+            }
+        }
+        if (this.type == "input-2fa") {
+            values.code = (values.code || "").trim();
+            if (!values.code) {
+                return;
+            }
+        }
+        if (this.type == "session-login") {
+            values.osusername = (values.osusername || "").trim();
+            values.ospassword = (values.ospassword || "").trim();
+            if (!values.osusername || !values.ospassword) {
+                return;
+            }
+        }
+        if (this.type == "session-login-password") {
+            values.password = (values.password || "").trim();
+            values.osusername = (values.osusername || "").trim();
+            values.ospassword = (values.ospassword || "").trim();
+            if (!values.osusername || !values.ospassword || !values.password) {
+                return;
+            }
+        }
+        if (this.type == "multiple-sessions-nocancel") {
+            values.sid = (this.$$(select))[0].value;
+        }
+        return values;
+    }
+    
+    function set_outline_focus() {
+        var me = this;
+        self.timer(30ms, function() {
+            var el = me.$(.outline-focus);
+            if (el) view.focus = el;
+            else {
+                el = me.$(#submit);
+                if (el) {
+                    view.focus = el;
+                }
+            }
+        });
+    }
+
+    function close() {
+        closeMsgbox();
+    }
+}

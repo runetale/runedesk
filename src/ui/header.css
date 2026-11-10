@@ -1,0 +1,172 @@
+/* Remote session toolbar (RuneDesk). */
+
+header {
+  background: color(gray-bg);
+  border-bottom: color(menu-hover) solid 1px;
+}
+
+header div {
+  word-wrap: normal;
+}
+
+header .rd-caption {
+  size: *;
+  margin: * 0;
+  text-align: center;
+  font-weight: 500;
+}
+
+.rd-toolbar {
+  flow: horizontal;
+  width: max-content;
+  height: 44px;
+  border-spacing: 10px;
+  margin: * *;
+}
+
+/* Peer pill: connection dot, name, address, displays. */
+header .rd-peer {
+  flow: horizontal;
+  height: 30px;
+  padding: 0 12px 0 11px;
+  border-radius: 8px;
+  background: color(bg);
+  border: color(menu-hover) solid 1px;
+  width: max-content;
+  border-spacing: 8px;
+  margin: * 0;
+  position: relative;
+}
+
+header .rd-dot {
+  display: block;
+  size: 8px;
+  padding: 0;
+  margin: * 0;
+  border-radius: 4px;
+  background: #15A249;
+}
+header .rd-dot.relay { background: #FF9900; }
+header .rd-dot.insecure { background: #962828; }
+header .rd-dot:hover { background: #15A249; }
+header .rd-dot.relay:hover { background: #FF9900; }
+header .rd-dot.insecure:hover { background: #962828; }
+header .rd-dot.pending, header .rd-dot.pending:hover { background: color(border); }
+
+header .rd-peer-name {
+  width: max-content;
+  margin: * 0;
+  font-size: 13px;
+  font-weight: 500;
+  color: color(text);
+  white-space: nowrap;
+}
+
+header .rd-peer-ip {
+  width: max-content;
+  margin: * 0;
+  font-family: "RD Plex Mono", monospace;
+  font-size: 12px;
+  color: color(lighter-text);
+}
+
+header .rd-screens {
+  flow: horizontal;
+  border-spacing: 4px;
+  margin: * 0;
+  padding-left: 8px;
+  border-left: color(menu-hover) solid 1px;
+}
+
+header #screen {
+  width: 20px;
+  height: 18px;
+  line-height: 18px;
+  text-align: center;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  color: color(light-text);
+  background: color(gray-bg);
+  cursor: pointer;
+}
+
+header #screen:hover {
+  background: color(menu-hover);
+  color: color(text);
+}
+
+header #screen.current, div#global-screens > div.current {
+  background: color(accent);
+  color: color(bg);
+}
+
+div#global-screens {
+  position: relative;
+  margin: * 0;
+}
+
+div#global-screens > div {
+  position: absolute;
+  border: color(border) solid 1px;
+  border-radius: 2px;
+  text-align: center;
+  color: color(light-text);
+}
+
+/* Icon buttons. */
+header .rd-tools {
+  flow: horizontal;
+  width: max-content;
+  height: 30px;
+  border-spacing: 2px;
+  margin: * 0;
+}
+
+header span.rd-tool {
+  display: block;
+  size: 30px;
+  padding: 0;
+  margin: * 0;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+header span.rd-tool svg {
+  display: block;
+  size: 17px;
+  margin: *;
+  fill: color(light-text);
+  stroke: none;
+}
+
+header span.rd-tool:hover {
+  background: color(menu-hover);
+}
+
+header span.rd-tool:hover svg {
+  fill: color(text);
+}
+
+header span.rd-tool:active {
+  background: color(border);
+}
+
+header span.rd-tool.on svg circle {
+  fill: #962828;
+}
+
+span#fullscreen.active {
+  background: color(menu-hover);
+}
+
+button:disabled {
+  opacity: 0.3;
+}
+
+@media platform != "OSX" {
+  header .window-toolbar {
+    height: 36px;
+    bottom: 4px;
+  }
+}

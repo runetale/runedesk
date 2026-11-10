@@ -1,0 +1,589 @@
+html {
+    /* runetale palette: ink #191E1E, cream #E8E4DC */
+    var(accent): #191E1E;
+    var(button): #191E1E;
+    var(gray-bg): #F3F1EC;
+    var(bg): white;
+    var(border): #ccc;
+    var(hover-border): #999;
+    var(text): #222;
+    var(placeholder): #aaa;
+    var(lighter-text): #888;
+    var(light-text): #666;
+    var(menu-hover): #E8E4DC;
+    var(dark-red): #A72145;
+    var(dark-yellow): #FBC732;
+    var(dark-blue): #2E2459;
+    var(green-blue): #197260;
+    var(gray-blue): #2B3439;
+    var(blue-green): #4299bf;
+    var(light-green): #D4EAB7;
+    var(dark-green): #5CB85C;
+    var(blood-red): #F82600;
+    var(gray-bg-osx): rgba(243, 241, 236, 0.85);
+}
+
+html.darktheme {
+    var(accent): #E8E4DC;
+    var(button): #E8E4DC;
+    var(bg): #191E1E;
+    var(gray-bg): #111414;
+    var(menu-hover): #2B3131;
+    var(border): #555;
+
+    var(text): white;
+    var(light-text): #999;
+    var(lighter-text): #777;
+    var(placeholder): #555;
+    var(gray-bg-osx): rgba(25, 30, 30, 0.85);
+}
+
+/* Same type as the runetale admin dashboard: Alliance No2 (ss04 baked in)
+   for display and body, IBM Plex Mono for addresses; weights 400/500. */
+@font-face {
+    font-family: "RD Alliance";
+    src: url(fonts/AllianceNo2-Regular.ttf);
+    font-weight: 400;
+}
+@font-face {
+    font-family: "RD Alliance";
+    src: url(fonts/AllianceNo2-Medium.ttf);
+    font-weight: 500;
+}
+@font-face {
+    font-family: "RD Plex Mono";
+    src: url(fonts/IBMPlexMono-Regular.ttf);
+    font-weight: 400;
+}
+@font-face {
+    font-family: "RD Plex Mono";
+    src: url(fonts/IBMPlexMono-Medium.ttf);
+    font-weight: 500;
+}
+
+body {
+    margin: 0;
+    color: color(text);
+    font-family: "RD Alliance", "IBM Plex Sans JP", "Hiragino Kaku Gothic ProN", "Hiragino Sans", system-ui, sans-serif;
+}
+
+button.button {
+    height: 2em;
+    border-radius: 0.5em;
+    background: color(button);
+    color: color(bg);
+    border-color: color(button);
+    min-width: 40px;
+}
+
+button[type=checkbox], button[type=checkbox]:active {
+    background: none;
+    border: none;
+    color: unset;
+    height: 1.4em;
+}
+
+button.outline {
+    border: color(border) solid 1px;
+    background: transparent;
+    color: color(text);
+}
+
+button.button:active, button.active {
+    background: color(accent);
+    color: color(bg);
+    border-color: color(accent);
+}
+
+button.button:hover, button.outline:hover {
+  border-color: color(hover-border);
+}
+
+button.link {
+  background: none !important;
+  border: none;
+  padding: 0 !important;
+  color: color(button);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+input[type=text], input[type=password], input[type=number] {
+    width: *;
+    font-size: 1.5em;
+    border-color: color(border);
+    border-radius: 0;
+    color: color(text);
+    padding-left: 0.5em;
+    background: color(bg);
+}
+
+input:empty {
+    color: color(placeholder);
+}
+
+input.outline-focus:focus {
+    outline: color(button) solid 3px;
+}
+
+textarea {
+    background: color(bg);
+    color: color(text);
+}
+
+textarea:empty {
+    color: color(placeholder);
+}
+
+@set my-scrollbar
+{
+  .prev { display:none; }
+  .next { display:none; }
+  .base, .next-page, .prev-page { background: white;}
+  .slider { background: #bbb; border: white solid 4px; }
+  .base:disabled { background: transparent; }
+  .slider:hover  { background: grey; }
+  .slider:active { background: grey; }
+  .base { size: 16px; }
+  .corner { background: white; }
+}
+
+@mixin ELLIPSIS {
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    overflow-x: hidden;
+}
+
+.ellipsis {
+  @ELLIPSIS;
+}
+
+div.password svg:not(.checkmark) {
+    padding-left: 1em;
+    size: 16px;
+    color: #ddd;
+    background: none;
+    padding-top: 4px!important;
+}
+
+div.password input {
+    font-family: Consolas, Menlo, Monaco, 'Courier New';
+    font-size: 1.2em;
+}
+
+div.username input {
+  font-size: 1.2em;
+}
+
+svg {
+    background: none;
+}
+
+header {
+  border-bottom: color(border) solid 1px;
+  height: 22px;
+  flow: horizontal;
+  overflow-x: hidden;
+  position: relative;
+}
+
+@media platform == "OSX" {
+    header {
+      background: linear-gradient(top,#E4E4E4,#D1D1D1);
+    }
+}
+
+header div.window-icon {
+  size: 22px;
+}
+
+@media platform != "OSX" {
+header {
+  background: white;
+  height: 30px;
+}
+
+header div.window-icon {
+  size: 30px;
+}
+}
+
+header div.window-icon icon {
+  display: block;
+  margin: *;
+  size: 16px;
+  background-size: cover;
+  background-repeat: no-repeat;
+}
+
+header caption {
+  size: *;
+}
+
+@media platform != "OSX" {
+  button.window {
+    top: 0;
+    padding: 0 10px;
+    width: 22px;
+    position: absolute;
+    color: black;
+    border: none;
+    background: none;
+    border-radius: 0;
+  }
+  button.window div {
+    size: 10px;
+    margin: *;
+    background-size: cover;
+    background-repeat: no-repeat;
+  }
+  button.window:hover {
+    background: color(gray-bg);
+  }
+  button.window#minimize {
+    right: 84px;
+  }
+  button.window#maximize {
+    right: 42px;
+  }
+  button.window#close {
+    right: 0px;
+  }
+  button.window#minimize div {
+    height: 3px;
+    border-bottom: black solid 1px;
+    width: 12px;
+  }
+  button.window#maximize div {
+    border: black solid 1px;
+  }
+  button.window#close:hover {
+    background: #F82600;
+  }
+  button.window#close:hover div {
+    background-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAwAAAAMBAMAAACkW0HUAAAAD1BMVEUAAAD///////////////+PQt5oAAAABXRSTlMAO+hBqp3RzLsAAAAuSURBVAjXY3BkAAIRBiEDBgZGZRACMkEYxAJyQRwgV5EBSsEEoUqgGqDaoYYBALKmBEEnAGy8AAAAAElFTkSuQmCC');
+  }
+  button.window#close div {
+    background-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAwAAAAMBAMAAACkW0HUAAAAD1BMVEUAAAAAAAAAAAAAAAAAAABPDueNAAAABXRSTlMAO+hBqp3RzLsAAAAuSURBVAjXY3BkAAIRBiEDBgZGZRACMkEYxAJyQRwgV5EBSsEEoUqgGqDaoYYBALKmBEEnAGy8AAAAAElFTkSuQmCC');
+    size: 12px;
+  }
+  button.window#maximize.restore div {
+    border: none;
+    size: 12px;
+    background-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAwAAAAMAQMAAABsu86kAAAABlBMVEUAAAAAAAClZ7nPAAAAAXRSTlMAQObYZgAAAB1JREFUCNdjsP/AoCDA8P8CQ0MABipgaHBg+H8AAMfSC36WAZteAAAAAElFTkSuQmCC');
+}
+}
+
+div.chatbox {
+  size: *;
+}
+
+div.chatbox div.send svg {
+  size: 16px;
+}
+
+div.chatbox div.send span:active {
+  opacity: 0.5;
+}
+
+div.chatbox div.send span {
+  display: inline-block;
+  padding: 6px;
+}
+
+div.chatbox .msgs {
+  border: none;
+  size: *;
+  border-bottom: color(border) 1px solid;
+  overflow-x: hidden;
+  overflow-y: scroll-indicator;
+  border-spacing: 1em;
+  padding: 1em;
+}
+
+div.chatbox div.send {
+  flow: horizontal;
+  height: 30px;
+  padding: 5px;
+}
+
+div.chatbox div.send input {
+  height: 20px !important;
+}
+
+div.chatbox div.name {
+  color: color(dark-green);
+}
+
+div.chatbox div.right-side div {
+  text-align: right;
+}
+
+div.chatbox div.text {
+    margin-top: 0.5em;
+}
+
+@media platform != "OSX" {
+header .window-toolbar {
+  width: max-content;
+  background: transparent;
+  position: absolute;
+  bottom: 4px;
+  height: 24px;
+}
+}
+
+header svg, menu svg {
+  size: 14px;
+}
+
+header span, menu span {
+  padding: 4px 8px;
+  margin: * 0.5em;
+  color: color(light-text);
+}
+
+progress {
+    display: inline-block;
+    aspect: Progress;
+    border: none;
+    margin-right: 1em;
+    height: 0.25em;
+    background: transparent;
+}
+
+menu {
+  background: color(bg);
+  padding: 6px;
+  border: color(menu-hover) solid 1px;
+  border-radius: 10px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18);
+}
+
+menu div.separator {
+  height: 1px;
+  width: *;
+  margin: 5px 4px;
+  background: color(menu-hover);
+  border: none;
+}
+
+menu li {
+  color: color(text);
+  position: relative;
+  padding: 6px 14px 6px 30px;
+  border-radius: 6px;
+}
+
+menu li svg {
+  fill: color(text);
+}
+
+menu li span {
+  display: none;
+}
+
+menu li.selected span:nth-child(1) {
+  display: inline-block;
+  position: absolute;
+  left: 2px;
+  top: 2px;
+}
+
+.link {
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.link:active {
+  opacity: 0.5;
+}
+
+menu li:hover {
+  background: color(menu-hover);
+  color: color(text);
+}
+
+menu li.line-through, menu li.line-through :hover {
+  text-decoration-line: line-through;
+  color: red;
+}
+
+#tags {
+    size: *;
+    padding: 0.5em;
+    overflow-y: scroll-indicator;
+    border-spacing: 0.5em;
+    flow: horizontal-flow;
+}
+
+#tags span {
+    background: color(gray-bg);
+    display: inline-block;
+    border-radius: 6px;
+    padding: 3px 0.5em;
+    word-wrap: normal;
+}
+
+#tags span.active {
+    background: color(button);
+    border-color: color(button);
+    color: white;
+}
+
+#tags span:hover {
+    border-color: color(hover-border);
+}
+
+/* Dialogs (RuneDesk). */
+div#msgbox .rd-scrim {
+  position: absolute;
+  size: *;
+  background: rgba(17, 20, 20, 0.55);
+}
+
+div#msgbox .rd-dialog {
+  flow: vertical;
+  padding: 20px 22px 18px;
+  border-radius: 14px;
+  background: color(bg);
+  border: color(menu-hover) solid 1px;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.28);
+}
+
+div#msgbox .rd-dialog-head {
+  flow: horizontal;
+  border-spacing: 12px;
+  margin-bottom: 10px;
+}
+
+div#msgbox .rd-dialog-icon {
+  size: 36px;
+  border-radius: 18px;
+  background: color(gray-bg);
+}
+
+div#msgbox .rd-dialog-icon svg {
+  display: block;
+  size: 20px;
+  margin: *;
+  fill: color(text);
+  stroke: none;
+}
+
+div#msgbox .rd-dialog.success .rd-dialog-icon { background: rgba(21, 162, 73, 0.12); }
+div#msgbox .rd-dialog.success .rd-dialog-icon svg { fill: #15A249; }
+div#msgbox .rd-dialog.error .rd-dialog-icon { background: rgba(150, 40, 40, 0.12); }
+div#msgbox .rd-dialog.error .rd-dialog-icon svg { fill: #962828; }
+
+div#msgbox .rd-dialog-title {
+  margin: * 0;
+  font-size: 16px;
+  font-weight: 500;
+  color: color(text);
+  @ELLIPSIS;
+}
+
+div#msgbox .rd-dialog-body {
+  width: *;
+  height: *;
+  color: color(light-text);
+  line-height: 1.5em;
+}
+
+div#msgbox .rd-dialog.has-icon .rd-dialog-body,
+div#msgbox .rd-dialog.has-icon .rd-progress {
+  margin-left: 48px;
+}
+
+div#msgbox .rd-progress {
+  width: *;
+  height: 3px;
+  margin-top: 14px;
+  margin-right: 0;
+  border-radius: 2px;
+  color: color(accent);
+  background: color(gray-bg);
+}
+
+div#msgbox .rd-dialog-actions {
+  flow: horizontal;
+  border-spacing: 8px;
+  margin-top: 16px;
+}
+
+div#msgbox .rd-dialog-spacer {
+  width: *;
+}
+
+div#msgbox #error {
+  margin: * 0;
+  max-width: 260px;
+  font-size: 12px;
+  color: #962828;
+}
+
+div#msgbox .form {
+  border-spacing: 0.5em;
+}
+
+div#msgbox .form .text {
+  @ELLIPSIS;
+}
+
+div#msgbox button.button {
+  height: 32px;
+  padding: 0 14px;
+  margin: 0;
+  border-radius: 8px;
+  font-weight: 500;
+}
+
+div#msgbox div.password {
+  position: relative;
+}
+
+div#msgbox div.password svg {
+  position: absolute;
+  right: 0.25em;
+  top: 0.25em;
+  padding: 0.5em;
+  color: color(text);
+}
+
+div#msgbox div.set-password > div {
+  flow: horizontal;
+}
+
+div#msgbox div.set-password > div > span {
+  width: 30%;
+  line-height: 2em;
+}
+
+div#msgbox div.set-password div.password {
+  width: *;
+}
+
+div#msgbox div.set-password div > input {
+  width: *;
+}
+
+div#msgbox div.set-password input {
+  font-size: 1em;
+}
+
+
+div.user-session .title {
+  font-size: 1.2em;
+  margin-bottom: 2em;
+}
+
+div.user-session select {
+  width: 98%;
+  height: 2em;
+  border-radius: 0.5em;
+  border: color(border) solid 1px;
+  background: color(bg);
+  color: color(text);
+  padding-left: 0.5em;
+}
