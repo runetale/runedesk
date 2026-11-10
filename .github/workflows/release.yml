@@ -233,15 +233,25 @@ jobs:
           & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" /Qp "/DAppVersion=$env:VERSION" "/DSourceDir=$PWD\target\release" "/DOutputDir=$PWD\dist" res\windows\runedesk.iss
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-      - name: Sign installer
+      - name: MSI
+        shell: pwsh
+        run: |
+          dotnet tool install --global wix --version 6.0.2
+          $env:Path = "$env:USERPROFILE\.dotnet\tools;$env:Path"
+          wix build res\windows\RuneDesk.wxs -arch x64 -d "Version=$env:VERSION" -d "SourceDir=$PWD\target\release" -o "dist\RuneDesk-$env:VERSION-windows-x64.msi"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Sign installers
         if: env.SIGN == 'true'
         shell: pwsh
-        run: ./scripts/sign-windows.ps1 (Get-ChildItem dist\*-setup.exe).FullName
+        run: ./scripts/sign-windows.ps1 (Get-ChildItem dist\*-setup.exe).FullName (Get-ChildItem dist\*.msi).FullName
 
       - uses: actions/upload-artifact@v4
         with:
           name: runedesk-windows
-          path: dist/*-setup.exe
+          path: |
+            dist/*-setup.exe
+            dist/*.msi
           if-no-files-found: error
 
   release:

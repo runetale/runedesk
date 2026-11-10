@@ -48,3 +48,16 @@ Source: "{#SourceDir}\sciter.dll"; DestDir: "{tmp}\runedesk"; Flags: ignoreversi
 [Run]
 Filename: "{tmp}\runedesk\runedesk.exe"; Parameters: "--silent-install"; StatusMsg: "Installing RuneDesk..."; Flags: runhidden waituntilterminated
 Filename: "{autopf}\RuneDesk\runedesk.exe"; Description: "Launch RuneDesk"; Flags: postinstall nowait skipifsilent runasoriginaluser
+
+[Code]
+// The MSI package (RuneDesk.wxs) owns the install when present; installing
+// this on top would leave two owners of the same files and service.
+function InitializeSetup(): Boolean;
+begin
+  Result := True;
+  if RegKeyExists(HKLM64, 'SOFTWARE\Runetale\RuneDesk') then
+  begin
+    MsgBox('RuneDesk is already installed with the MSI package. Uninstall it from Settings > Apps first, then run this installer.', mbError, MB_OK);
+    Result := False;
+  end;
+end;

@@ -26,7 +26,7 @@ runetale のポリシーで通信が許可されているデバイスにだけ�
 |---|---|---|
 | macOS (Apple Silicon) | macOS 11 以降 | `RuneDesk-macos-arm64.dmg` |
 | macOS (Intel) | macOS 10.15 以降 | `RuneDesk-macos-x64.dmg` |
-| Windows (x64) | Windows 10 以降 | `RuneDesk-windows-x64-setup.exe` |
+| Windows (x64) | Windows 10 以降 | `RuneDesk-windows-x64-setup.exe`（一括配布用: `RuneDesk-windows-x64.msi`） |
 
 Windows on ARM でも x64 版がエミュレーションで動作します。
 
@@ -37,7 +37,7 @@ Windows on ARM でも x64 版がエミュレーションで動作します。
 
 - macOS (Apple Silicon): `RuneDesk-<バージョン>-macos-arm64.dmg`
 - macOS (Intel): `RuneDesk-<バージョン>-macos-x64.dmg`
-- Windows: `RuneDesk-<バージョン>-windows-x64-setup.exe`
+- Windows: `RuneDesk-<バージョン>-windows-x64-setup.exe`（一括配布用: `RuneDesk-<バージョン>-windows-x64.msi`）
 - チェックサム: `SHA256SUMS`
 
 Mac のアプリは Apple の公証済み、Windows のインストーラとプログラムは Runetale Inc. の署名付きです。
@@ -67,6 +67,19 @@ Mac を操作される側にする場合は、RuneDesk を起動したままに�
 2. `C:\Program Files\RuneDesk` にインストールされ、Windows サービスとして常駐します。
    サインイン前の画面や再起動後でも、操作される側として接続を受け付けます。
 3. スタートメニューの **RuneDesk** から画面を開けます。
+
+### Windows（MSI: Intune / グループポリシーでの一括配布）
+
+管理ツールで配布する場合は MSI を使います。内容は EXE 版と同じです。
+
+```
+msiexec /i RuneDesk-<バージョン>-windows-x64.msi /qn
+```
+
+- サイレントインストール（`/qn`）に対応しています。新しいバージョンの MSI を配布すると上書き更新されます。
+- アンインストール: `msiexec /x RuneDesk-<バージョン>-windows-x64.msi /qn`、または 設定 → アプリ から。
+- **EXE 版と MSI 版は混在できません。** どちらかが入っている PC にもう一方を入れようとすると、
+  先にアンインストールするよう案内して停止します。
 
 ## 4. 接続する
 

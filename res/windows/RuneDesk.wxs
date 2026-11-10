@@ -1,0 +1,91 @@
+<!--
+  RuneDesk MSI (WiX v6), for managed deployment (Intune, GPO, msiexec /qn).
+
+    wix build res/windows/RuneDesk.wxs -arch x64 -d Version=0.1.2 -d SourceDir=<dir with runedesk.exe, sciter.dll> -o RuneDesk.msi
+
+  Windows Installer owns the files, shortcuts and the Add/Remove Programs
+  entry. RuneDesk itself sets up the rest with the same commands its own
+  installer runs (custom actions AfterInstall and BeforeUninstall below):
+    after-install     service, firewall rules, runedesk:// scheme, SAS policy
+    before-uninstall  stops and deletes the service, removes the above
+-->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Package Name="RuneDesk"
+           Manufacturer="Runetale Inc."
+           Version="$(Version)"
+           UpgradeCode="D0B4D7C7-C855-4560-8B3C-99B29DD0EB3B"
+           Scope="perMachine"
+           Compressed="yes"
+           InstallerVersion="500">
+
+    <MajorUpgrade DowngradeErrorMessage="A newer version of RuneDesk is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+
+    <Icon Id="RuneDeskIcon" SourceFile="$(sys.SOURCEFILEDIR)..\icon.ico" />
+    <Property Id="ARPPRODUCTICON" Value="RuneDeskIcon" />
+    <Property Id="ARPURLINFOABOUT" Value="https://github.com/runetale/runedesk" />
+    <Property Id="ARPNOMODIFY" Value="1" />
+
+    <!-- The EXE installer registers its own uninstaller; installing both would
+         leave two owners of the same files and service. -->
+    <Property Id="EXE_INSTALL_LOCATION">
+      <RegistrySearch Root="HKLM" Key="SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\RuneDesk"
+                      Name="InstallLocation" Type="raw" Bitness="always64" />
+    </Property>
+    <Launch Condition="Installed OR NOT EXE_INSTALL_LOCATION"
+            Message="RuneDesk is already installed with the EXE installer. Uninstall it from Settings &gt; Apps first, then run this MSI." />
+
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="RuneDesk" />
+    </StandardDirectory>
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="AppMenuFolder" Name="RuneDesk" />
+    </StandardDirectory>
+    <StandardDirectory Id="StartupFolder" />
+
+    <ComponentGroup Id="RuneDeskFiles" Directory="INSTALLFOLDER">
+      <Component Id="RuneDeskExe" Bitness="always64">
+        <File Id="RuneDeskExe" Source="$(SourceDir)\runedesk.exe" Name="runedesk.exe" KeyPath="yes" />
+        <!-- Privacy mode injects into a renamed copy of the system RuntimeBroker. -->
+        <CopyFile Id="RuntimeBroker" SourceDirectory="System64Folder" SourceName="RuntimeBroker.exe"
+                  DestinationDirectory="INSTALLFOLDER" DestinationName="RuntimeBroker_runedesk.exe" />
+        <RemoveFile Id="RemoveRuntimeBroker" Name="RuntimeBroker_runedesk.exe" On="uninstall" />
+      </Component>
+      <Component Id="SciterDll" Bitness="always64">
+        <File Id="SciterDll" Source="$(SourceDir)\sciter.dll" KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+
+    <ComponentGroup Id="RuneDeskShortcuts">
+      <Component Id="StartMenuShortcut" Directory="AppMenuFolder" Bitness="always64">
+        <Shortcut Id="StartMenuShortcut" Name="RuneDesk" Target="[INSTALLFOLDER]runedesk.exe"
+                  WorkingDirectory="INSTALLFOLDER" Icon="RuneDeskIcon" />
+        <RemoveFolder Id="RemoveAppMenuFolder" On="uninstall" />
+        <RegistryValue Root="HKLM" Key="SOFTWARE\Runetale\RuneDesk" Name="StartMenuShortcut"
+                       Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+      <!-- Same as the EXE install: the tray starts at sign-in for every user. -->
+      <Component Id="TrayStartupShortcut" Directory="StartupFolder" Bitness="always64">
+        <Shortcut Id="TrayStartupShortcut" Name="RuneDesk Tray" Target="[INSTALLFOLDER]runedesk.exe"
+                  Arguments="--tray" WorkingDirectory="INSTALLFOLDER" Icon="RuneDeskIcon" />
+        <RegistryValue Root="HKLM" Key="SOFTWARE\Runetale\RuneDesk" Name="TrayStartupShortcut"
+                       Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+
+    <Feature Id="Main" Title="RuneDesk">
+      <ComponentGroupRef Id="RuneDeskFiles" />
+      <ComponentGroupRef Id="RuneDeskShortcuts" />
+    </Feature>
+
+    <CustomAction Id="AfterInstall" FileRef="RuneDeskExe" ExeCommand="--after-install"
+                  Execute="deferred" Impersonate="no" Return="check" />
+    <CustomAction Id="BeforeUninstall" FileRef="RuneDeskExe" ExeCommand="--before-uninstall"
+                  Execute="deferred" Impersonate="no" Return="ignore" />
+
+    <InstallExecuteSequence>
+      <Custom Action="BeforeUninstall" Before="RemoveFiles" Condition="Installed AND REMOVE=&quot;ALL&quot;" />
+      <Custom Action="AfterInstall" Before="InstallFinalize" Condition="NOT REMOVE=&quot;ALL&quot;" />
+    </InstallExecuteSequence>
+  </Package>
+</Wix>

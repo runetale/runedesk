@@ -69,7 +69,8 @@ Installers are on [Releases](https://github.com/runetale/runedesk/releases):
 
 - **macOS** Apple Silicon (11+): `RuneDesk-<version>-macos-arm64.dmg`
 - **macOS** Intel (10.15+): `RuneDesk-<version>-macos-x64.dmg`
-- **Windows** x64: `RuneDesk-<version>-windows-x64-setup.exe`
+- **Windows** x64: `RuneDesk-<version>-windows-x64-setup.exe`, or
+  `RuneDesk-<version>-windows-x64.msi` for managed deployment (Intune, GPO)
 
 Both devices need runetale running and an ACL that allows TCP 21118 between
 them.
