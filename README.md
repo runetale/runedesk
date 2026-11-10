@@ -108,8 +108,8 @@ Releases are built by [`.github/workflows/release.yml`](.github/workflows/releas
 
 The workflow builds macOS (arm64 and x64) and Windows (x64), signs them
 (Developer ID + notarization, DigiCert KeyLocker), publishes a GitHub
-Release with `SHA256SUMS`, and, when the repository secret `PKG_PREFIX`
-is set, copies the assets to `pkgs.runetale.com/<PKG_PREFIX>/` (versioned
+Release with `SHA256SUMS`, and, when the repository secrets `PKG_PREFIX`, `PKG_DIST_BUCKET` and `PKG_DIST_ROLE_ARN` are
+set, copies the assets to `pkgs.runetale.com/<PKG_PREFIX>/` (versioned
 and latest). Running it by hand builds unsigned artifacts without a
 release.
 

@@ -264,7 +264,8 @@ jobs:
 
   # Copy the release assets to pkgs.runetale.com (pkg-dist S3 bucket behind
   # CloudFront), like runetale-desktop, under the repository secret
-  # PKG_PREFIX (a secret so the path is masked in public logs):
+  # PKG_PREFIX, with the bucket and IAM role in PKG_DIST_BUCKET and
+  # PKG_DIST_ROLE_ARN (secrets, so all three are masked in public logs):
   #   <PKG_PREFIX>/<version>/<asset>                      versioned
   #   <PKG_PREFIX>/RuneDesk-macos-{arm64,x64}.dmg,
   #   <PKG_PREFIX>/RuneDesk-windows-x64-setup.exe, SHA256SUMS   latest
@@ -279,7 +280,7 @@ jobs:
     env:
       TAG: ${{ inputs.publish_tag || github.ref_name }}
       PREFIX: ${{ secrets.PKG_PREFIX }}
-      BUCKET: ${{ vars.PKG_DIST_BUCKET_NAME }}
+      BUCKET: ${{ secrets.PKG_DIST_BUCKET }}
     steps:
       - name: Download release assets
         env:
@@ -287,7 +288,7 @@ jobs:
         run: |
           set -euo pipefail
           if [[ -z "$PREFIX" ]]; then echo "PKG_PREFIX is not set; nothing to publish"; exit 0; fi
-          [[ -n "$BUCKET" ]] || { echo "::error::vars.PKG_DIST_BUCKET_NAME is not set for this repository"; exit 1; }
+          [[ -n "$BUCKET" ]] || { echo "::error::secret PKG_DIST_BUCKET is not set"; exit 1; }
           mkdir assets
           gh release download "$TAG" -R "$GITHUB_REPOSITORY" -D assets
           cd assets && sha256sum -c SHA256SUMS && ls -la
@@ -295,8 +296,9 @@ jobs:
       - uses: aws-actions/configure-aws-credentials@v4
         if: env.PREFIX != ''
         with:
-          role-to-assume: ${{ vars.AWS_GITHUB_ACTIONS_ROLE_ARN }}
+          role-to-assume: ${{ secrets.PKG_DIST_ROLE_ARN }}
           aws-region: us-east-1
+          mask-aws-account-id: true
 
       - name: Upload
         if: env.PREFIX != ''
