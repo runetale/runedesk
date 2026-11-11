@@ -66,14 +66,18 @@ pub fn start(args: &mut [String]) {
     // https://github.com/c-smile/sciter-sdk/blob/master/include/sciter-x-types.h
     // https://github.com/rustdesk/runedesk/issues/132#issuecomment-886069737
     #[cfg(windows)]
-    allow_err!(sciter::set_options(sciter::RuntimeOptions::GfxLayer(
-        sciter::GFX_LAYER::WARP
-    )));
+    {
+        let (name, layer) = gfx_layer();
+        let r = sciter::set_options(sciter::RuntimeOptions::GfxLayer(layer));
+        log::info!("ui: gfx layer {name}: {r:?}");
+    }
     use sciter::SCRIPT_RUNTIME_FEATURES::*;
     allow_err!(sciter::set_options(sciter::RuntimeOptions::ScriptFeatures(
         ALLOW_FILE_IO as u8 | ALLOW_SOCKET_IO as u8 | ALLOW_EVAL as u8 | ALLOW_SYSINFO as u8
     )));
+    log::info!("ui: creating window, args={args:?}");
     let mut frame = sciter::WindowBuilder::main_window().create();
+    log::info!("ui: window created");
     #[cfg(windows)]
     allow_err!(sciter::set_options(sciter::RuntimeOptions::UxTheming(true)));
     frame.set_title(&crate::get_app_name());
@@ -160,7 +164,9 @@ pub fn start(args: &mut [String]) {
         } else {
             inline::get_remote()
         };
-        frame.load_html(html.as_bytes(), Some(page));
+        log::info!("ui: loading {page}");
+        let ok = frame.load_html(html.as_bytes(), Some(page));
+        log::info!("ui: loaded {page}: {ok}");
     }
     #[cfg(not(feature = "inline"))]
     frame.load_file(&format!(
@@ -170,7 +176,31 @@ pub fn start(args: &mut [String]) {
             .unwrap_or("".to_owned()),
         page
     ));
+    log::info!("ui: running");
     frame.run_app();
+    log::info!("ui: closed");
+}
+
+/// The Sciter graphics backend. WARP (software Direct2D) by default, see
+/// https://github.com/rustdesk/rustdesk/issues/132#issuecomment-886069737.
+/// `RUNEDESK_GFX` (cpu, warp, d2d, skia, skia-gl, auto) overrides it for
+/// machines where the default draws nothing.
+#[cfg(windows)]
+fn gfx_layer() -> (String, sciter::GFX_LAYER) {
+    use sciter::GFX_LAYER::*;
+    let name = std::env::var("RUNEDESK_GFX")
+        .unwrap_or_default()
+        .trim()
+        .to_lowercase();
+    let layer = match name.as_str() {
+        "cpu" | "gdi" => CPU,
+        "d2d" => D2D,
+        "skia" => SKIA_CPU,
+        "skia-gl" => SKIA_OPENGL,
+        "auto" => AUTO,
+        _ => return ("warp".to_owned(), WARP),
+    };
+    (name, layer)
 }
 
 struct UI {}
@@ -740,11 +770,34 @@ impl sciter::EventHandler for UI {
         fn generate_2fa_img_src(String);
         fn verify2fa(String);
     }
+
+    fn document_complete(&mut self, _root: sciter::HELEMENT, _target: sciter::HELEMENT) {
+        log::info!("ui: document complete");
+    }
 }
 
 impl sciter::host::HostHandler for UIHostHandler {
     fn on_graphics_critical_failure(&mut self) {
         log::error!("Critical rendering error: e.g. DirectX gfx driver error. Most probably bad gfx drivers.");
+    }
+
+    // Script output and HTML/CSS/script errors, which otherwise go to a
+    // console the GUI process does not have.
+    fn on_debug_output(
+        &mut self,
+        subsystem: sciter::host::OUTPUT_SUBSYTEMS,
+        severity: sciter::host::OUTPUT_SEVERITY,
+        message: &str,
+    ) {
+        let message = message.trim_end();
+        if message.is_empty() {
+            return;
+        }
+        if severity == sciter::host::OUTPUT_SEVERITY::INFO {
+            log::info!("sciter {subsystem:?}: {message}");
+        } else {
+            log::warn!("sciter {severity:?} {subsystem:?}: {message}");
+        }
     }
 
     // With the inline UI the pages are loaded from memory, so `url(fonts/...)`
