@@ -165,6 +165,9 @@ pub fn start(args: &mut [String]) {
             inline::get_remote()
         };
         log::info!("ui: loading {page}");
+        // The BOM marks the page as UTF-8; without it Sciter may decode it
+        // with the system code page (Shift-JIS on Japanese Windows).
+        let html = format!("\u{feff}{html}");
         let ok = frame.load_html(html.as_bytes(), Some(page));
         log::info!("ui: loaded {page}: {ok}");
     }

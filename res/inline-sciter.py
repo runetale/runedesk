@@ -35,6 +35,12 @@ cm = open('src/ui/cm.html', encoding='utf-8').read() \
 
 def compress(s):
     s = s.replace("\r\n", "\n")
+    # Sciter may decode the page with the system ANSI code page (e.g. Shift-JIS
+    # on Japanese Windows), where UTF-8 sequences can swallow the next byte and
+    # break the script. Keep the sources ASCII; use "\uXXXX" in strings.
+    bad = [l for l in s.split('\n') if any(ord(c) > 127 for c in l)]
+    if bad:
+        raise SystemExit('non-ASCII characters in the UI sources:\n' + '\n'.join(bad))
     x = bytes(s, encoding='utf-8')
     return '&[u8; ' + str(len(x)) + '] = b"' + str(x)[2:-1].replace(r"\'", "'").replace(r'"',
                                                                                   r'\"') + '"'

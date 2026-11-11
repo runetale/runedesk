@@ -608,7 +608,7 @@ class App: Reactor.Component
             </div>;
     }
 
-    // runetale-only: single column — top bar, connect bar, this device,
+    // runetale-only: single column - top bar, connect bar, this device,
     // permission notices, device grid.
     function renderRunetale() {
         var is_can_screen_recording = handler.is_can_screen_recording(false);
@@ -636,7 +636,7 @@ class App: Reactor.Component
                         </div>
                         <div .rt-hero-actions>
                             <span .rt-link #file-transfer>{translate('Transfer file')}</span>
-                            <span .rt-dot-sep>·</span>
+                            <span .rt-dot-sep>{"\u00b7"}</span>
                             <RunetaleApproval />
                         </div>
                     </div>
@@ -718,10 +718,10 @@ class RunetalePeers: Reactor.Component {
                             <div .peer-top>
                                 <div .peer-icon>{osGlyph(p.os)}<span .peer-badge /></div>
                                 <div .rt-spacer />
-                                <span .peer-go>{translate("Connect")} →</span>
+                                <span .peer-go>{translate("Connect") + " \u2192"}</span>
                             </div>
                             <div .peer-name>{p.name}</div>
-                            <div .peer-ip>{p.ip}{p.os ? "  ·  " + p.os : ""}</div>
+                            <div .peer-ip>{p.ip}{p.os ? "  \u00b7  " + p.os : ""}</div>
                         </div>;
                     })}
                 </div>}
