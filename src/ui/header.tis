@@ -155,11 +155,9 @@ class Header: Reactor.Component {
                 {this.renderGlobalScreens()}
             </div>
             <div .rd-tools>
-                <span #chat .rd-tool title={translate("Chat")}>{rd_icon_chat}</span>
                 <span #action .rd-tool title={translate("Actions")}>{rd_icon_action}</span>
                 <span #display .rd-tool title={translate("Display")}>{rd_icon_display}</span>
                 <span #keyboard .rd-tool title={translate("Keyboard")}>{rd_icon_keyboard}</span>
-                {recording_enabled ? <span #recording class={recording ? "rd-tool on" : "rd-tool"} title={translate("Recording")}>{recording ? rd_icon_recording : rd_icon_record}</span> : ""}
                 {is_osx || is_xfce ? "" : <span #fullscreen .rd-tool title={translate("Full screen")}>{rd_icon_fullscreen}</span>}
             </div>
             {this.renderKeyboardPop()}
@@ -639,10 +637,8 @@ view.on("size", function() {
     });
 });
 
-handler.newMessage = function(text) {
-    chat_msgs.push({text: text, name: pi.username || "", time: getNowStr()});
-    startChat();
-}
+// RuneDesk has no chat (it would get around the disabled clipboard).
+handler.newMessage = function(text) {}
 
 function sendMsg(text) {
     chat_msgs.push({text: text, name: "me", time: getNowStr()});

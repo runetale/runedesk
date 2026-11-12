@@ -253,9 +253,26 @@ impl Client {
     ) -> ResultType<(Stream, bool, Option<Vec<u8>>)> {
         // to-do: remember the port for each peer, so that we can retry easier
         if hbb_common::is_ip_str(peer) {
+            let port = if crate::common::RUNETALE_ONLY && conn_type == ConnType::FILE_TRANSFER {
+                crate::common::FILE_TRANSFER_PORT
+            } else {
+                RELAY_PORT + 1
+            };
+            let addr = check_port(peer, port);
+            if port == crate::common::FILE_TRANSFER_PORT {
+                // The runetale policy drops the connection when this device
+                // may not transfer files to the peer.
+                return match socket_client::connect_tcp(addr, CONNECT_TIMEOUT).await {
+                    Ok(s) => Ok((s, true, None)),
+                    Err(e) => bail!(
+                        "File transfer is not allowed: the runetale policy must allow TCP {} to this device ({})",
+                        port,
+                        e
+                    ),
+                };
+            }
             return Ok((
-                socket_client::connect_tcp(check_port(peer, RELAY_PORT + 1), CONNECT_TIMEOUT)
-                    .await?,
+                socket_client::connect_tcp(addr, CONNECT_TIMEOUT).await?,
                 true,
                 None,
             ));

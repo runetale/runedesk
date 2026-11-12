@@ -935,8 +935,12 @@ impl<T: InvokeUiSession> Remote<T> {
 
     async fn send_toggle_privacy_mode_msg(&self, peer: &mut Stream) {
         let lc = self.handler.lc.read().unwrap();
+        // Runetale-only: every session starts in privacy mode where the peer
+        // supports it (the remote screen is hidden and its local input
+        // blocked); it can be turned off from the toolbar.
         if lc.version >= hbb_common::get_version_number("1.2.4")
-            && lc.get_toggle_option("privacy-mode")
+            && (lc.get_toggle_option("privacy-mode")
+                || (crate::common::RUNETALE_ONLY && lc.is_privacy_mode_supported()))
         {
             let impl_key = lc.get_option("privacy-mode-impl-key");
             let mut misc = Misc::new();
@@ -1324,6 +1328,8 @@ impl<T: InvokeUiSession> Remote<T> {
                     Some(misc::Union::AudioFormat(f)) => {
                         self.audio_sender.send(MediaData::AudioFormat(f)).ok();
                     }
+                    // Runetale-only: no chat.
+                    Some(misc::Union::ChatMessage(_)) if crate::common::RUNETALE_ONLY => {}
                     Some(misc::Union::ChatMessage(c)) => {
                         self.handler.new_message(c.text);
                     }

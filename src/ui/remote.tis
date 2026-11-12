@@ -452,6 +452,14 @@ var size_adapted;
 handler.adaptSize = function() {
     if (size_adapted) return;
     size_adapted = true;
+    // RuneDesk: sessions open full screen (the toolbar at the top edge
+    // leaves it). macOS keeps its own window handling.
+    if (!is_osx && !is_xfce) {
+        old_window_state = View.WINDOW_SHOWN;
+        view.windowState = View.WINDOW_FULL_SCREEN;
+        if (is_linux) { self.timer(150ms, function() { view.windowState = View.WINDOW_FULL_SCREEN; }); }
+        return;
+    }
     var (sx, sy, sw, sh) = view.screenBox(#workarea, #rectw);
     var (fx, fy, fw, fh) = view.screenBox(#frame, #rectw);
     if (is_osx) workarea_offset = sy;

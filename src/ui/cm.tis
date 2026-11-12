@@ -72,10 +72,8 @@ class Body: Reactor.Component
                     {auth && !disconnected ? <button #disconnect .control .button>{translate('Disconnect')}</button> : "" }
                     {auth && disconnected ? <button #close .control .button>{translate('Close')}</button> : "" }
                 </div>
-                {c.is_file_transfer || c.port_forward ? "" : <div .chaticon>{svg_chat}</div>}
             </div>
             <div .right-panel style={right_style}>
-                {c.is_file_transfer || c.port_forward ? "" : <ChatBox msgs={c.msgs} callback={callback} />}
             </div>
         </div>;
     }

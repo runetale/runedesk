@@ -71,6 +71,12 @@ impl RendezvousMediator {
             // Runetale-only: accept direct connections on the runetale IP and
             // never register with a rendezvous server.
             log::info!("runetale-only mode: direct server only, no rendezvous");
+            // File transfer has its own port, so the runetale policy decides
+            // who may use it (see FILE_TRANSFER_PORT).
+            let file_server = server.clone();
+            tokio::spawn(async move {
+                direct_server_on(file_server, || crate::common::FILE_TRANSFER_PORT).await;
+            });
             tokio::spawn(async move {
                 direct_server(server).await;
             });
@@ -623,6 +629,12 @@ fn get_direct_port() -> i32 {
 }
 
 async fn direct_server(server: ServerPtr) {
+    direct_server_on(server, get_direct_port).await
+}
+
+/// Accepts direct connections on the port `get_port` returns (re-read every
+/// second, so a changed option re-binds).
+async fn direct_server_on(server: ServerPtr, get_port: fn() -> i32) {
     let mut listener = None;
     let mut port = 0;
     loop {
@@ -630,7 +642,7 @@ async fn direct_server(server: ServerPtr) {
             && Config::get_option("direct-server").is_empty())
             || !Config::get_option("stop-service").is_empty();
         if !disabled && listener.is_none() {
-            port = get_direct_port();
+            port = get_port();
             match hbb_common::tcp::listen_any(port as _).await {
                 Ok(l) => {
                     listener = Some(l);
@@ -647,7 +659,7 @@ async fn direct_server(server: ServerPtr) {
                         err
                     );
                     loop {
-                        if port != get_direct_port() {
+                        if port != get_port() {
                             break;
                         }
                         sleep(1.).await;
@@ -656,7 +668,7 @@ async fn direct_server(server: ServerPtr) {
             }
         }
         if let Some(l) = listener.as_mut() {
-            if disabled || port != get_direct_port() {
+            if disabled || port != get_port() {
                 log::info!("Exit direct access listen");
                 listener = None;
                 continue;

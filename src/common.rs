@@ -158,6 +158,11 @@ pub const CLIPBOARD_DISABLED_AT_BUILD: bool = cfg!(feature = "no-clipboard");
 /// the direct server (port 21118); no rendezvous/ID server, NAT test, update
 /// check or heartbeat is contacted. Build with `--features rendezvous` to undo.
 pub const RUNETALE_ONLY: bool = !cfg!(feature = "rendezvous");
+/// Runetale-only: file transfer sessions connect to this port instead of the
+/// direct server port (21118), and only connections accepted here may
+/// transfer files. Allowing TCP 21119 in the runetale policy is what grants a
+/// device the right to transfer files.
+pub const FILE_TRANSFER_PORT: i32 = 21119;
 
 
 #[cfg(all(target_os = "macos", feature = "flutter_texture_render"))]

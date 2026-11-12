@@ -369,6 +369,10 @@ impl<T: InvokeUiSession> Session<T> {
     }
 
     pub fn record_screen(&self, start: bool, display: i32, w: i32, h: i32) {
+        // Runetale-only: no session recording.
+        if crate::common::RUNETALE_ONLY {
+            return;
+        }
         self.send(Data::RecordScreen(
             start,
             display as usize,
@@ -684,6 +688,9 @@ impl<T: InvokeUiSession> Session<T> {
     }
 
     pub fn send_chat(&self, text: String) {
+        if crate::common::RUNETALE_ONLY {
+            return;
+        }
         let mut misc = Misc::new();
         misc.set_chat_message(ChatMessage {
             text,

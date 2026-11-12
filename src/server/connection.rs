@@ -189,6 +189,9 @@ pub struct Connection {
     file: bool,
     restart: bool,
     recording: bool,
+    /// Runetale-only: accepted on FILE_TRANSFER_PORT, i.e. the runetale
+    /// policy lets the peer transfer files to this device.
+    on_file_port: bool,
     block_input: bool,
     last_test_delay: Option<Instant>,
     network_delay: u32,
@@ -318,6 +321,8 @@ impl Connection {
 
         #[cfg(not(any(target_os = "android", target_os = "ios")))]
         let tx_cloned = tx.clone();
+        let on_file_port = crate::common::RUNETALE_ONLY
+            && stream.local_addr().port() as i32 == crate::common::FILE_TRANSFER_PORT;
         let mut conn = Self {
             inner: ConnInner {
                 id,
@@ -342,9 +347,14 @@ impl Connection {
                 && Connection::permission("enable-clipboard"),
             audio: Connection::permission("enable-audio"),
             // to-do: make sure is the option correct here
-            file: Connection::permission("enable-file-transfer"),
+            file: (!crate::common::RUNETALE_ONLY || on_file_port)
+                && Connection::permission("enable-file-transfer"),
             restart: Connection::permission("enable-remote-restart"),
-            recording: Connection::permission("enable-record-session"),
+            // Runetale-only: no session recording (it would leave a copy of
+            // the remote screen on the controlling device).
+            recording: !crate::common::RUNETALE_ONLY
+                && Connection::permission("enable-record-session"),
+            on_file_port,
             block_input: Connection::permission("enable-block-input"),
             last_test_delay: None,
             network_delay: 0,
@@ -466,6 +476,7 @@ impl Connection {
                                 break;
                             }
                         }
+                        ipc::Data::ChatMessage{..} if crate::common::RUNETALE_ONLY => {}
                         ipc::Data::ChatMessage{text} => {
                             let mut misc = Misc::new();
                             misc.set_chat_message(ChatMessage {
@@ -505,12 +516,15 @@ impl Connection {
                                         conn.inner.clone(), conn.audio_enabled());
                                 }
                             } else if &name == "file" {
+                                let enabled = enabled
+                                    && (!crate::common::RUNETALE_ONLY || conn.on_file_port);
                                 conn.file = enabled;
                                 conn.send_permission(Permission::File, enabled).await;
                             } else if &name == "restart" {
                                 conn.restart = enabled;
                                 conn.send_permission(Permission::Restart, enabled).await;
                             } else if &name == "recording" {
+                                let enabled = enabled && !crate::common::RUNETALE_ONLY;
                                 conn.recording = enabled;
                                 conn.send_permission(Permission::Recording, enabled).await;
                             } else if &name == "block_input" {
@@ -1604,11 +1618,23 @@ impl Connection {
             if self.authorized {
                 return true;
             }
+            if self.on_file_port
+                && !matches!(lr.union, Some(login_request::Union::FileTransfer(_)))
+            {
+                self.send_login_error("Only file transfer is accepted on this port")
+                    .await;
+                sleep(1.).await;
+                return false;
+            }
             match lr.union {
                 Some(login_request::Union::FileTransfer(ft)) => {
-                    if !Connection::permission("enable-file-transfer") {
-                        self.send_login_error("No permission of file transfer")
-                            .await;
+                    if !self.file {
+                        self.send_login_error(if crate::common::RUNETALE_ONLY {
+                            "File transfer is not allowed by the runetale policy"
+                        } else {
+                            "No permission of file transfer"
+                        })
+                        .await;
                         sleep(1.).await;
                         return false;
                     }
@@ -2223,6 +2249,9 @@ impl Connection {
                     Some(misc::Union::TogglePrivacyMode(t)) => {
                         self.toggle_privacy_mode(t).await;
                     }
+                    // Runetale-only: no chat; text sent through it would get
+                    // around the disabled clipboard.
+                    Some(misc::Union::ChatMessage(_)) if crate::common::RUNETALE_ONLY => {}
                     Some(misc::Union::ChatMessage(c)) => {
                         self.send_to_cm(ipc::Data::ChatMessage { text: c.text });
                         self.chat_unanswered = true;
